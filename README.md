@@ -1,4 +1,5 @@
 # Dr. Monologue: Stupid Therapist Robot
+Inspired by DougDoug
 
 Talk to it, and it'll figure out how you're feeling and answer back in character as Dr. Monologue, a dramatic therapist who occasionally lets slip that he actually wanted to be a comedian and hates this job.
 
@@ -52,14 +53,12 @@ Then, in order:
 ## Does it actually work well?
 
 - The text-only classifier got **56% accuracy** guessing the right emotion out of 7 options (random guessing would be around 14%), which is roughly what published results on this dataset get.
-- I also tried adding audio into the mix, but it actually did worse — **53%** — trained on a smaller chunk of data (2,000 samples instead of the full set) and just slapping the audio and text features together instead of properly combining them. Went with the text-only version for the real demo since it was just better.
-- The full thing works end to end: talk into the mic, it transcribes what you said, figures out the emotion, writes something in character, and reads it back to you. Tested it on happy, angry, sad, and neutral inputs and it holds up.
+- I also tried adding audio into the mix, but it actually did worse — **53%** — trained on a smaller chunk of data (2,000 samples instead of the full set)
 - Takes about 5-10 seconds per response, running on a regular laptop CPU, no GPU.
 
 ## limits and darn failures
 - It guesses "neutral" a lot. the training data itself is skewed that way, so the model picked up the same bias.
 - Whisper sometimes mishears you, especially short phrases or anything with an accent.
-- The response model occasionally goes on a tangent since it's not huge; I cut off any half-finished sentence at the end so it doesn't just stop mid-word.
 - Nothing here was fine-tuned, it's all off-the-shelf pretrained models with a small classifier on top.
 - The audio + text combination was pretty basic. just gluing the two feature sets together, not a real fusion setup.
 - No video/vision, and no reinforcement learning, didn't get to either of those.
