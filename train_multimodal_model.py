@@ -12,7 +12,7 @@ dataset = load_dataset("ajyy/MELD_audio", trust_remote_code=True)
 train_data = dataset["train"].select(range(2000))  
 dev_data = dataset["validation"]
 
-# --- Load pretrained audio encoder ---
+# --- load pretrained audio encoder ---
 audio_processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base")
 audio_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base")
 audio_model.eval()

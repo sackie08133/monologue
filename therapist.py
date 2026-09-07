@@ -2,7 +2,6 @@ import joblib
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 
-# Load what we built earlier
 clf = joblib.load("emotion_classifier.pkl")
 encoder = SentenceTransformer("text_encoder")
 

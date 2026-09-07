@@ -1,6 +1,7 @@
 # Dr. Monologue: Stupid Therapist Robot
-
-Talk to it, and it'll figure out how you're feeling and answer back in character as Dr. Monologue, a dramatic therapist who occasionally lets slip that he actually wanted to be a comedian and hates this job.
+Inspired by DougDoug!
+Talk to it, and it'll figure out how you're feeling and answer back in character as Dr. Monologue, a dramatic therapist
+Its also a therapist with dementia. For simplicity purposes (and token purposes), the model is not given any way to keep memory of the conversation (new "instance" built each time a sound file is passed.)
 
 ## How it's built
 
@@ -29,12 +30,12 @@ Text gets turned into a vector (MiniLM, ~22M) → fed into a simple classifier �
 |---|---|---|
 | Speech-to-text | Whisper-base | ~74M |
 | Turns text into a vector | all-MiniLM-L6-v2 | ~22M |
-| Emotion classifier | Logistic Regression | basically nothing |
-| Audio model (tried, not used in final demo) | Wav2Vec2-base | ~95M |
+| Emotion classifier | Logistic Regression |
+| Audio model| Wav2Vec2-base | ~95M |
 | Writes the response | Qwen2.5-1.5B-Instruct | ~1.5B |
 | **Total** | | **~1.7B** |
 
-None of the pretrained models were fine-tuned — they're used as-is. Only the little classifier on top was actually trained. Emotions are the standard 7 from MELD: neutral, joy, sadness, anger, fear, disgust, surprise.
+None of the pretrained models were fine-tuned. Classifier as only component trained (Logistic regression)
 
 ## Running it yourself
 Install everything first:
@@ -45,16 +46,15 @@ pip install torch transformers sentence-transformers scikit-learn datasets sound
 Then, in order:
 
 1. `python train_text_model.py` — trains the emotion classifier on MELD text (pulls the dataset automatically)
-2. `python train_multimodal_model.py` — optional, this is the audio experiment that ended up not being used in the final version
+2. `python train_multimodal_model.py` — audio experiement trained with Wav2Vec 2.0 (meta), on a small dataset.
 3. `python mic_demo.py` — the actual demo. Hit Enter, talk for 5 seconds, and it'll answer back out loud
-4. `python stream_demo.py` — feeds in a real back-and-forth conversation from MELD instead of your mic, to show it working on a full dialogue
+4. `python stream_demo.py` — feeds in a real back-and-forth conversation from MELD.
 
 ## Does it actually work well?
 
 - The text-only classifier got **56% accuracy** guessing the right emotion out of 7 options (random guessing would be around 14%), which is roughly what published results on this dataset get.
-- I also tried adding audio into the mix, but it actually did worse — **53%** — trained on a smaller chunk of data (2,000 samples instead of the full set) and just slapping the audio and text features together instead of properly combining them. Went with the text-only version for the real demo since it was just better.
-- The full thing works end to end: talk into the mic, it transcribes what you said, figures out the emotion, writes something in character, and reads it back to you. Tested it on happy, angry, sad, and neutral inputs and it holds up.
-- Takes about 5-10 seconds per response, running on a regular laptop CPU, no GPU.
+- Talk into the mic, it transcribes what you said, figures out the emotion, writes something in character, and reads it back to you. Tested it on happy, angry, sad, and neutral inputs.
+- Takes about 5-10 seconds per response, running on a regular laptop.
 
 ## limits and darn failures
 - It guesses "neutral" a lot. the training data itself is skewed that way, so the model picked up the same bias.

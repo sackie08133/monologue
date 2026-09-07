@@ -2,18 +2,23 @@ import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 import re
+import numpy as np
+import torch
 import sounddevice as sd
 import scipy.io.wavfile as wav
 import whisper
 import joblib
 import pyttsx3
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline
+from transformers import pipeline, Wav2Vec2Processor, Wav2Vec2Model
 
-# Load pieces
-clf = joblib.load("emotion_classifier.pkl")
-encoder = SentenceTransformer("text_encoder")
-generator = pipeline("text-generation", model="Qwen/Qwen2.5-1.5B-Instruct") # 1.5B params
+# --- Load all pieces once, at startup ---
+clf = joblib.load("multimodal_classifier.pkl")          # trained on text+audio combined
+text_encoder = SentenceTransformer("text_encoder")
+audio_processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base")
+audio_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base")
+audio_model.eval()
+generator = pipeline("text-generation", model="Qwen/Qwen2.5-1.5B-Instruct")
 whisper_model = whisper.load_model("base")  # ~74M params
 
 SAMPLE_RATE = 16000
@@ -24,18 +29,27 @@ def record_audio():
     audio = sd.rec(int(DURATION * SAMPLE_RATE), samplerate=SAMPLE_RATE, channels=1, dtype="float32")
     sd.wait()
     wav.write("mic_input.wav", SAMPLE_RATE, audio)
-    return "mic_input.wav"
+    audio_array = audio.flatten()  # same audio, as a flat 1D array for Wav2Vec
+    return "mic_input.wav", audio_array
 
 def transcribe(filepath):
     result = whisper_model.transcribe(filepath, fp16=False)
     return result["text"].strip()
 
-def predict_emotion(text):
-    vec = encoder.encode([text])
-    return clf.predict(vec)[0]
+def get_audio_embedding(audio_array):
+    inputs = audio_processor(audio_array, sampling_rate=SAMPLE_RATE, return_tensors="pt")
+    with torch.no_grad():
+        outputs = audio_model(**inputs)
+    return outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
+
+def predict_emotion(text, audio_array):
+    text_vec = text_encoder.encode([text])[0]
+    audio_vec = get_audio_embedding(audio_array)
+    combined = np.concatenate([text_vec, audio_vec]).reshape(1, -1)
+    return clf.predict(combined)[0]
 
 def trim_to_complete_sentence(text):
-    """Cut off any dangling half-sentence at the end."""
+    # cut off any dangling half-sentence at the end
     matches = list(re.finditer(r'[.!?]', text))
     if matches:
         return text[:matches[-1].end()].strip()
@@ -43,7 +57,7 @@ def trim_to_complete_sentence(text):
 
 def dr_monologue_response(text, emotion):
     messages = [
-        {"role": "system", "content": "You are Dr. Monologue, an absurdly dramatic therapist. Respond in 1-2 theatrical, overly poetic sentences most of the time. However, sometimes you will speak as if you really don't want to be with the patient. You will then go on an extremely long dialogue, of around 100 words about how the societal pressures have failed you as a comedian and you had to go to your backup job, a therapist, which in reality you deeply hate. You should speak as if you supress this feeling on a daily basis, but it leaks out occasionally. Try to be subtle. Never break character."},
+        {"role": "system", "content": "You are Dr. Monologue, an absurdly dramatic therapist. Respond in 1-2 theatrical, overly poetic sentences. Never break character."},
         {"role": "user", "content": f"[Detected emotion: {emotion}] {text}"}
     ]
     output = generator(messages, max_new_tokens=180, do_sample=True, temperature=0.9,
@@ -68,13 +82,13 @@ def speak(text):
 if __name__ == "__main__":
     while True:
         input("\nPress Enter to record (or Ctrl+C to quit)...")
-        filepath = record_audio()
+        filepath, audio_array = record_audio()
         text = transcribe(filepath)
         print(f"You said: {text}")
         if not text:
             print("(Didn't catch anything, try again)")
             continue
-        emotion = predict_emotion(text)
+        emotion = predict_emotion(text, audio_array)
         response = dr_monologue_response(text, emotion)
         print(f"[Detected: {emotion}]")
         print(f"Dr. Monologue: {response}")

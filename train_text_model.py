@@ -19,10 +19,10 @@ y_dev = dev_df["Emotion"].tolist()
 clf = LogisticRegression(max_iter=1000)
 clf.fit(X_train, y_train)
 
-# Check how well it does on unseen data
+# check how well it does on unseen data
 preds = clf.predict(X_dev)
 print("Accuracy:", accuracy_score(y_dev, preds))
 
-# Save everything so we can reuse it later
+# Save everything so can reuse later
 joblib.dump(clf, "emotion_classifier.pkl")
 encoder.save("text_encoder")
